@@ -9,6 +9,6 @@ aiohttp_session
 click
 pendulum==2.0.3
 pyyaml
-Pillow
+# Pillow
 pytest
 requests[socks]
