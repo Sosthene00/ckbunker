@@ -100,9 +100,6 @@ async def startup(setup_mode, force_local_mode, config_file, first_psbt):
     if first_psbt:
         STATUS.import_psbt(first_psbt)
 
-    from torsion import TOR
-    aws.append(TOR.startup())
-
     from conn import Connection
     aws.append(Connection(force_serial).run())
 

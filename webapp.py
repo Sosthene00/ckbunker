@@ -842,32 +842,20 @@ def startup(setup_mode):
     # create app: order of middlewares matters
     app = web.Application(middlewares=[sml, auth_everything])
     app.add_routes(routes)
-    app.router.add_static('/static', './static')
+    # app.router.add_static('/static', './static')
 
     # hack to obfuscate our identity a little
     # - from <https://w3techs.com/technologies/details/ws-nginx/1>  23% market share
     import aiohttp.web_response as ht
     ht.SERVER_SOFTWARE = 'nginx/1.14.1'
 
-    j_env = aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('templates'),
-                                        filters=extra_filters(app))
-    j_env.globals.update(default_context())
-    j_env.policies['json.dumps_function'] = json_dumps
+    # j_env = aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader('templates'),
+    #                                     filters=extra_filters(app))
+    # j_env.globals.update(default_context())
+    # j_env.policies['json.dumps_function'] = json_dumps
 
     my_url = f"http://localhost:{settings.PORT_NUMBER}" + ('/setup' if setup_mode else '')
     logging.info(f"Web server at:    {my_url}")
-
-    # meh; kinda annoying.
-    if 0:
-        def popup():
-            try:
-                # see <https://github.com/jupyter/notebook/issues/3746#issuecomment-444957821>
-                # if this doesn't happen on MacOS
-                from webbrowser import open as open_browser
-                open_browser(my_url)
-            except:
-                logging.error("Unable to pop browser open", exc_info=1)
-        asyncio.get_running_loop().call_later(3, popup)
 
     from aiohttp.abc import AbstractAccessLogger
     class AccessLogger(AbstractAccessLogger):
