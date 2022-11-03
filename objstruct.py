@@ -4,8 +4,8 @@
 #
 
 class ObjectStruct(dict):
-    '''An object like both a dict and also an object that you can 
-       easily use attr reference to get members. Construct with a 
+    '''An object like both a dict and also an object that you can
+       easily use attr reference to get members. Construct with a
        dict or like a dict.
     '''
 

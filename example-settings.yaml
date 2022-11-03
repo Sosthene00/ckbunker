@@ -1,8 +1,0 @@
-# Example configuration file. See persist.py for variable names and default values.
-#
-# Usage:
-#
-#   ckbunker setup -c example-settings.yaml
-#   ckbunker run -c example-settings.yaml
-#
-PORT_NUMBER: 9800

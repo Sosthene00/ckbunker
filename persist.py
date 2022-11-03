@@ -9,15 +9,11 @@ from objstruct import ObjectStruct
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())
 
-# globals, used system-wide
-settings = None
-BP = None
-
 # System-wide settings for Bunker itself.
 #
 class Settings(metaclass=Singleton):
 
-    # web server port 
+    # web server port
     PORT_NUMBER = 9823
 
     # session idle time, before we kick you out and require re-auth (seconds)
@@ -96,22 +92,6 @@ class Settings(metaclass=Singleton):
 
         return yaml.safe_dump(d)
 
-    @classmethod
-    def startup(cls, config_file=None):
-        # creates singleton
-        global settings, BP
-
-        # only safe place to create singletons is here
-        assert not settings and not BP
-
-        settings = Settings()
-        if config_file:
-            settings.read(config_file)
-
-        # load defaults into BP 
-        BP = BunkerPersistance()
-        BP.reset()
-
 # Store some state, encrypted.
 # - inial values are the settings, but lower case for some reason
 # - some are adjustable on "Bunker Setup" page
@@ -141,7 +121,7 @@ class BunkerPersistance(WatchableMixin, dict, metaclass=Singleton):
 
         self.key = key
         self.box = nacl.secret.SecretBox(self.key)
-        
+
         # calc filename
         bn = 'bp-%s.dat' % sha256(sha256(b'salty' + self.key).digest()).hexdigest()[-16:].lower()
         self.filename =  os.path.join(settings.DATA_FILES, bn)
@@ -162,7 +142,7 @@ class BunkerPersistance(WatchableMixin, dict, metaclass=Singleton):
         self.update(d)
 
         # copy a setting to status (XXX feels wrong)
-        from status import STATUS 
+        from status import STATUS
         STATUS.tor_enabled = self.get('tor_enabled', False)
 
         logging.info(f"Got bunker settings from: {self.filename}")
@@ -189,4 +169,5 @@ class BunkerPersistance(WatchableMixin, dict, metaclass=Singleton):
             pass
 
 
-# EOF
+settings = Settings()
+BP = BunkerPersistance()

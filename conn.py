@@ -2,7 +2,7 @@
 #
 # Connection to Coldcard (and/or simulator).
 #
-import asyncio, logging, os
+import asyncio, logging, os, time
 from utils import Singleton, xfp2str, json_loads, json_dumps
 from status import STATUS
 from persist import settings, BP
@@ -128,7 +128,7 @@ class Connection(metaclass=Singleton):
                 sys.exit(1)
             else:
                 raise
-            
+
         try:
             import policy
             xk = policy.decode_sl(sl)
@@ -142,13 +142,6 @@ class Connection(metaclass=Singleton):
             logging.error("Unable to read bunker settings for this Coldcard; forging on")
         else:
             STATUS.sl_loaded = True
-
-        if BP.get('tor_enabled', False) and not (STATUS.force_local_mode or STATUS.setup_mode):
-            # get onto Tor as a HS
-            from torsion import TOR
-            STATUS.tor_enabled = True
-            logging.info(f"Starting hidden service: %s" % BP['onion_addr'])
-            asyncio.create_task(TOR.start_tunnel())
 
         h = STATUS.hsm
         if ('summary' in h) and h.summary and not BP.get('priv_over_ux') and not BP.get('summary'):
@@ -164,7 +157,7 @@ class Connection(metaclass=Singleton):
 
         if not self.dev or not STATUS.connected:
             raise MissingColdcard
-        
+
         try:
             def doit():
                 return self.dev.send_recv(msg, **kws)
@@ -207,7 +200,7 @@ class Connection(metaclass=Singleton):
             await self.activated_hsm()
 
         return STATUS.hsm
-            
+
     async def hsm_start(self, new_policy=None):
         args = []
         if new_policy is not None:
@@ -249,7 +242,7 @@ class Connection(metaclass=Singleton):
             secret = b''
 
         await self.send_recv(CCProtocolPacker.create_user(username, authmode, secret))
-    
+
     async def user_auth(self, username, token, totp, psbt_hash):
         if len(token) == 6 and token.isdigit():
             # assume TOTP if token (password) is 6-numeric digits

@@ -1,5 +1,5 @@
 #
-# Store and watch all **status** values in system. 
+# Store and watch all **status** values in system.
 #
 import sys, logging, asyncio
 from pprint import pprint, pformat
@@ -40,7 +40,7 @@ class SystemStatus(WatchableMixin, ObjectStruct):
         self._pending_psbt = None            # raw binary
         self.psbt_hash = None                # hex digits (sha256)
         self.psbt_size = None                # size of binary
-        self.local_code = None               # string of 6 digits 
+        self.local_code = None               # string of 6 digits
         self.psbt_preview = None             # text
         self.busy_signing = False
 
@@ -108,7 +108,7 @@ class SystemStatus(WatchableMixin, ObjectStruct):
 
     def as_dict(self):
         # we stream changes to web clients, so provide JSON
-        return dict((k, deepcopy(self[k])) 
+        return dict((k, deepcopy(self[k]))
                         for k in self.keys() if k[0] != '_' and not callable(self[k]))
 
 
