@@ -40,7 +40,11 @@ async def push_status_updates_handler(ws):
 
         if last != now:
             # it has changed, so send it.
-            await ws.send_str(json_dumps(dict(vue_app_cb=dict(update_status=now))))
+            try:
+                await ws.send_str(json_dumps(dict(update_status=now)))
+            except ConnectionResetError:
+                logging.info("Connection reset, closing...")
+                break
             last = now
 
         # wait until next update, or X seconds max (for keep alive/just in case)
@@ -65,13 +69,12 @@ async def api_websocket(request):
 
     try:
         api_rx = asyncio.create_task(rx_handler(ws, request))
-        # dis_tx = asyncio.create_task(push_status_updates_handler(ws))
+        dis_tx = asyncio.create_task(push_status_updates_handler(ws))
 
-        # await asyncio.gather(api_rx, dis_tx)
-        await asyncio.gather(api_rx)
+        await asyncio.gather(api_rx, dis_tx)
     finally:
         api_rx.cancel()
-        # dis_tx.cancel()
+        dis_tx.cancel()
         await ws.close()
 
     return ws
@@ -200,18 +203,6 @@ async def ws_api_handler(send_json, req, orig_request):     # handle_api
         except RuntimeError as e:
             await send_json(error=str(e))
 
-        dev = Connection()
-        c = -1
-        while True:
-            c += 1
-            if c >= 1:
-                await send_json(error="Policy wasn't validated on the coldcard in due time")
-                raise CCUserRefused
-            h = await dev.hsm_status()
-            if h['active']:
-                break
-            await asyncio.sleep(5)
-
         STATUS.notify_watchers()
 
         if save_copy:
@@ -219,7 +210,6 @@ async def ws_api_handler(send_json, req, orig_request):     # handle_api
             await send_json(local_download=dict(data=json_dumps(d, indent=2),
                                 filename=f'hsm-policy-{STATUS.xfp}.json.txt'))
 
-        await send_json(success=HSM_MODE)
 
     elif action == 'download_policy':
 
@@ -341,11 +331,11 @@ async def ws_api_handler(send_json, req, orig_request):     # handle_api
             dev = Connection()
 
             # do auth steps first (no feedback given)
-            for pa, guess in zip(STATUS.pending_auth, STATUS._auth_guess):
-                if pa.name and guess:
-                    await dev.user_auth(pa.name, guess, int(pa.totp), a2b_hex(STATUS.psbt_hash))
+            # for pa, guess in zip(STATUS.pending_auth, STATUS._auth_guess):
+            #     if pa.name and guess:
+            #         await dev.user_auth(pa.name, guess, int(pa.totp), a2b_hex(STATUS.psbt_hash))
 
-            STATUS.reset_pending_auth()
+            # STATUS.reset_pending_auth()
 
             try:
                 result = await dev.sign_psbt(STATUS._pending_psbt, finalize=finalize)
