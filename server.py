@@ -43,7 +43,6 @@ async def push_status_updates_handler(ws):
             try:
                 await ws.send_str(json_dumps(dict(update_status=now)))
             except ConnectionResetError:
-                logging.info("Connection reset, closing...")
                 break
             last = now
 
@@ -88,48 +87,52 @@ async def rx_handler(ws, orig_request):
         await _ws.send_str(json_dumps(resp))
 
 
-    async for msg in ws:
-        if msg.type != web.WSMsgType.TEXT:
-            raise TypeError('expected text')
+    try:
+        async for msg in ws:
+            if msg.type != web.WSMsgType.TEXT:
+                raise TypeError('expected text')
 
-        try:
-            assert len(msg.data) < 20000
-            req = json_loads(msg.data)
+            try:
+                assert len(msg.data) < 20000
+                req = json_loads(msg.data)
 
-            if '_ping' in req:
-                # connection keep alive, simple
-                await tx_resp(_pong=1)
-                continue
+                if '_ping' in req:
+                    # connection keep alive, simple
+                    await tx_resp(_pong=1)
+                    continue
 
-            # Caution: lots of sensitive values here XXX
-            #logging.info("WS api data: %r" % req)
+                # Caution: lots of sensitive values here XXX
+                #logging.info("WS api data: %r" % req)
 
-        except Exception as e:
-            logging.critical("Junk data on WS", exc_info=1)
-            break # the connection
+            except Exception as e:
+                logging.critical("Junk data on WS", exc_info=1)
+                break # the connection
 
-        # do something with the request
-        failed = True
-        try:
-            await ws_api_handler(tx_resp, req, orig_request)
-            failed = False
-        except SystemExit:
-            raise
-        except KeyboardInterrupt:
-            break
-        except ValueError as exc:
-            # pre-formated text for display
-            msg = exc.args[0]
-        except RuntimeError as exc:
-            # covers CCProtoError and similar
-            msg = str(exc) or str(type(exc).__name__)
-        except BaseException as exc:
-            logging.exception("API fail: req=%r" % req)
-            msg = str(exc) or str(type(exc).__name__)
+            # do something with the request
+            failed = True
+            try:
+                await ws_api_handler(tx_resp, req, orig_request)
+                failed = False
+            except SystemExit:
+                raise
+            except KeyboardInterrupt:
+                break
+            except ValueError as exc:
+                # pre-formated text for display
+                msg = exc.args[0]
+            except RuntimeError as exc:
+                # covers CCProtoError and similar
+                msg = str(exc) or str(type(exc).__name__)
+            except BaseException as exc:
+                logging.exception("API fail: req=%r" % req)
+                msg = str(exc) or str(type(exc).__name__)
 
-        if failed:
-            # standard error response
-            await tx_resp(error=msg)
+            if failed:
+                # standard error response
+                await tx_resp(error=msg)
+    except ConnectionResetError:
+        logging.info("Breaking rx_handler")
+        pass
 
 async def ws_api_handler(send_json, req, orig_request):     # handle_api
     #
@@ -202,6 +205,11 @@ async def ws_api_handler(send_json, req, orig_request):     # handle_api
             await Connection().hsm_start(proposed)
         except RuntimeError as e:
             await send_json(error=str(e))
+
+        while 1:
+            await asyncio.sleep(settings.PING_RATE)
+            if STATUS.hsm['active']:
+                break
 
         STATUS.notify_watchers()
 
@@ -277,6 +285,8 @@ async def ws_api_handler(send_json, req, orig_request):     # handle_api
         STATUS.import_psbt(psbt)
         STATUS.notify_watchers()
 
+        await send_json(success=f"Server successfully imported psbt {digest}")
+
     elif action == 'clear_psbt':
         STATUS.clear_psbt()
         STATUS.notify_watchers()
@@ -340,10 +350,6 @@ async def ws_api_handler(send_json, req, orig_request):     # handle_api
             try:
                 result = await dev.sign_psbt(STATUS._pending_psbt, finalize=finalize)
                 logging.info("Done signing")
-
-                msg = "Transaction signed."
-
-                await send_json(show_modal=True, html=Markup(msg), selector='.js-api-success')
 
                 result = (b2a_hex(result) if finalize else b64encode(result)).decode('ascii')
                 fname = 'transaction.txt' if finalize else ('signed-%s.psbt'%STATUS.psbt_hash[-6:])
