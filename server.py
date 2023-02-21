@@ -151,6 +151,14 @@ async def ws_api_handler(send_json, req, orig_request):     # handle_api
 
         # can send special state update at this point, depending on the page
 
+    elif action == 'get_info':
+        status = STATUS.as_dict()
+        if not status['connected']:
+            await send_json(error="Coldcard not connected")
+            return 
+        else: 
+            await send_json(status=status)
+
     elif action == 'start_hsm_btn':
         await Connection().hsm_start()
         await send_json(show_flash_msg=APPROVE_CTA)
